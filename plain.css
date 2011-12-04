@@ -1,0 +1,13 @@
+input {
+	border: 0;
+	font: 12pt serif;
+	background-color: transparent;
+	color: gray;
+	margin: 0 0 -3px 0;
+	outline: none;
+	overflow-y: hidden;
+	padding: 0;
+	resize: none;
+	text-wrap: none;
+	vertical-align: baseline;
+}
