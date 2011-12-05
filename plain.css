@@ -11,3 +11,7 @@ input {
 	text-wrap: none;
 	vertical-align: baseline;
 }
+
+.error {
+	color: red;
+}

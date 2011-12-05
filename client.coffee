@@ -3,13 +3,32 @@ $log = $ 'article'
 $debug = $ 'div'
 $line = $ 'b'
 
+userId = null
+
 sentence = []
 root = pos = null
 
 execute = ->
-    if root.verb == 'go'
-        dir = root.arg.dir
-        feedback ('Going ' + dir)
+    strip root
+    $.ajax
+        type: 'POST',
+        data: {q: root, u: userId},
+        dataType: 'json',
+        headers: {Accept: 'application/json'}
+        success: (data, status, $xhr) ->
+            if data.error
+                logError data.error
+            else
+                feedback data.result
+        error: ($xhr, textStatus, error) ->
+            logError ('Connection problem: ' + textStatus)
+
+strip = (node) ->
+    if typeof node == 'object'
+        delete node.up
+        delete node.done
+        for k, v of node
+            strip v
 
 backUp = ->
     seen = []
@@ -95,6 +114,9 @@ backspace = ->
 feedback = (msg) ->
     $log.append $('<p/>').text msg
 
+logError = (msg) ->
+    $log.append $('<p class="error"/>').text msg
+
 vis = ['need', 'verb', 'dir', 'arg']
 
 visualize = (node) ->
@@ -141,6 +163,10 @@ reset = ->
     root = {need: 'verb'}
     pos = root
 
+loadAccount = ->
+    userId = '42'
+
 $(document).ready ->
+    loadAccount()
     reset()
     construct()
