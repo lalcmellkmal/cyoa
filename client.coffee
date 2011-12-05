@@ -6,6 +6,11 @@ $line = $ 'b'
 sentence = []
 root = pos = null
 
+execute = () ->
+    if root.verb == 'go'
+        dir = root.arg.dir
+        feedback ('Going ' + dir)
+
 backUp = () ->
     seen = []
     while not pos.need
@@ -24,24 +29,23 @@ $input.on 'keydown', (event) ->
     atLeft = box.selectionStart == 0 and box.selectionEnd == 0
     len = $input.val().length
     atRight = box.selectionStart == len and box.selectionEnd == len
-    if event.which == 13 and root.done
-        reset()
-        $input.val ''
-        feedback 'Okay.'
-        construct()
-        return
+    changed = false
     if event.which in [9, 13, 32]
         event.preventDefault()
         word = $input.val()
-        $input.val ''
         orig = pos
         choose word
         if orig != pos
-            # state updated
-            construct()
-        else
-            feedback 'What?'
-    else if event.which == 8
+            changed = true
+    if event.which == 13 and root.done
+        execute()
+        reset()
+        changed = true
+    if changed
+        $input.val ''
+        construct()
+        return
+    if event.which == 8
         if atLeft
             backspace()
             construct()
