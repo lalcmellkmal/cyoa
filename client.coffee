@@ -6,12 +6,12 @@ $line = $ 'b'
 sentence = []
 root = pos = null
 
-execute = () ->
+execute = ->
     if root.verb == 'go'
         dir = root.arg.dir
         feedback ('Going ' + dir)
 
-backUp = () ->
+backUp = ->
     seen = []
     while not pos.need
         if pos.up
@@ -71,7 +71,7 @@ choose = (word) ->
             pos.dir = word
             backUp()
 
-backspace = () ->
+backspace = ->
     target = pos
     if target.done
         # Find last child
@@ -113,7 +113,7 @@ visualize = (node) ->
         $ul.css color: 'blue'
     $ul
 
-construct = () ->
+construct = ->
     $debug.children().remove()
     $debug.append visualize(root)
     flat = []
@@ -137,10 +137,10 @@ construct = () ->
             $line.append bit
     $input.focus()
 
-reset = () ->
+reset = ->
     root = {need: 'verb'}
     pos = root
 
-$(document).ready () ->
+$(document).ready ->
     reset()
     construct()
