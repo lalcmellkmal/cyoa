@@ -21,7 +21,7 @@ execute = ->
             else
                 feedback data.result
         error: ($xhr, textStatus, error) ->
-            logError ('Connection problem: ' + textStatus)
+            logError "Couldn't connect to server."
 
 strip = (node) ->
     if typeof node == 'object'
@@ -35,7 +35,7 @@ backUp = ->
     while not pos.need
         if pos.up
             if pos in seen
-                console.error 'infinite loop'
+                logError "Couldn't construct command."
                 break
             seen.push pos
             pos = pos.up
