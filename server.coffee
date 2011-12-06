@@ -15,24 +15,34 @@ universe.loadWorld (err, w, count) ->
         universe.saveWorld world, (err) ->
             if err then throw err
 
+roomOf = (player) ->
+    world.get player.get 'loc'
+
 execute = (query, player) ->
-    if query.verb == 'go'
-        dir = query.arg.dir
-        loc = player.get 'loc'
-        room = world.get loc
-        if room.exits and dir of room.exits
-            newLoc = room.exits[dir]
-            newRoom = world.get newLoc
-            if newRoom
-                room = newRoom
-                loc = newLoc
-                player.set loc: loc
-        desc = room.vis.desc
-        if room.exits
-            desc += ' Exits:'
-            for exit of room.exits
-                desc += " #{exit}"
-        return desc
+    switch query.verb
+        when 'go'
+            dir = query.arg.dir
+            room = roomOf player
+            if room.exits and dir of room.exits
+                newLoc = room.exits[dir]
+                newRoom = world.get newLoc
+                if newRoom
+                    room = newRoom
+                    player.set loc: newLoc
+                    return look room
+            "You can't go that way."
+        when 'look'
+            look roomOf player
+        else
+            "What?"
+
+look = (room) ->
+    desc = room.vis.desc
+    if room.exits
+        desc += ' Exits:'
+        for exit of room.exits
+            desc += " #{exit}"
+    desc
 
 handler = (req, resp) ->
     if req.method == 'POST'

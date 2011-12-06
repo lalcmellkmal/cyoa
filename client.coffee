@@ -53,8 +53,9 @@ $input.on 'keydown', (event) ->
         event.preventDefault()
         word = $input.val()
         orig = pos
+        origDone = pos.done
         choose word
-        if orig != pos
+        if orig != pos or origDone != pos.done
             changed = true
     if event.which == 13 and root.done
         execute()
@@ -84,6 +85,10 @@ choose = (word) ->
             pos.verb = 'go'
             pos.arg = up: pos, need: 'dir'
             pos = pos.arg
+        else if word == 'look'
+            delete pos.need
+            pos.verb = 'look'
+            pos.done = true
     else if pos.need == 'dir'
         if word in ['north', 'south', 'east', 'west']
             delete pos.need
@@ -93,13 +98,17 @@ choose = (word) ->
 backspace = ->
     target = pos
     if target.done
+        delete target.done
         # Find last child
         if target.arg
-            delete target.done
             pos = target.arg
             $input.val (pos.dir + ' ')
             delete pos.dir
             pos.need = 'dir'
+        else
+            $input.val (target.verb + ' ')
+            target.need = 'verb'
+            delete target.verb
     else if target.need
         # Delete this
         if target.up
@@ -144,7 +153,8 @@ construct = ->
             flat.push $input
         else if node.verb
             flat.push node.verb
-            go node.arg
+            if node.arg
+                go node.arg
         else if node.dir
             flat.push node.dir
         if node.done
