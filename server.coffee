@@ -6,19 +6,28 @@ media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js']
 
 players = '42': new universe.Player
 
+world = null
+universe.loadWorld (err, w, count) ->
+    if err then throw err
+    world = w
+    if count == 0
+        universe.addSimpleRooms world
+        universe.saveWorld world, (err) ->
+            if err then throw err
+
 execute = (query, player) ->
     if query.verb == 'go'
         dir = query.arg.dir
         loc = player.get 'loc'
-        room = universe.world.get('room_' + loc)
-        if dir of room.exits
+        room = world.get loc
+        if room.exits and dir of room.exits
             newLoc = room.exits[dir]
-            newRoom = universe.world.get('room_' + newLoc)
+            newRoom = world.get newLoc
             if newRoom
                 room = newRoom
                 loc = newLoc
                 player.set loc: loc
-        desc = room.desc
+        desc = room.vis.desc
         if room.exits
             desc += ' Exits:'
             for exit of room.exits
