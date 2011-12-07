@@ -2,6 +2,11 @@ Backbone = require 'backbone'
 redis = require 'redis'
 async = require 'async'
 
+redisClient = ->
+    require('redis').createClient()
+
+r = redisClient()
+
 class World extends Backbone.Model
     initialize: (rooms) ->
         @set rooms
@@ -11,16 +16,11 @@ class Player extends Backbone.Model
         @set loc: 1
 exports.Player = Player
 
-redisClient = ->
-    redis.createClient()
-
 exports.loadWorld = (cb) ->
     worldIndex = 1
     key = "world:#{worldIndex}"
-    r = redisClient()
     r.smembers "#{key}:rooms", (err, roomNumbers) ->
         if err
-            r.quit()
             cb err
         roomMap = {}
         count = 0
@@ -35,7 +35,6 @@ exports.loadWorld = (cb) ->
                 count++
                 cb null
         async.forEach roomNumbers, loadRoom, (err) ->
-            r.quit()
             if err
                 return cb err
             console.log "Loaded #{count} rooms."
@@ -48,7 +47,6 @@ exports.addSimpleRooms = (world) ->
 
 exports.saveWorld = (world, cb) ->
     worldIndex = 1
-    r = redisClient()
     m = r.multi()
     roomIds = []
     count = 0
@@ -66,7 +64,6 @@ exports.saveWorld = (world, cb) ->
     m.del roomsKey
     m.sadd roomsKey, roomIds
     m.exec (err, rs) ->
-        r.quit()
         if not err
             console.log "Saved #{count} rooms."
         cb err
