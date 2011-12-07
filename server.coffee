@@ -2,72 +2,68 @@ connect = require 'connect'
 fs = require 'fs'
 universe = require './universe'
 
+U = universe.U
+
 media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js']
 
 players = '42': new universe.Player
 
-world = null
-universe.loadWorld (err, w, count) ->
-    if err then throw err
-    world = w
-    if count == 0
-        universe.addSimpleRooms world, (err) ->
-            if err then throw err
-            universe.saveWorld world, (err) ->
-                if err then throw err
-
-roomById = (id) ->
-    world.get id
-
-roomOf = (player) ->
-    roomById player.get 'loc'
+roomOf = (player, cb) ->
+    loc = player.get 'loc'
+    U.get universe.Room, loc, (err, room) ->
+        if err then throw err
+        else cb room
 
 dirOpposites = north: 'south', south: 'north', west: 'east', east: 'west'
 
-execute = (query, player, cb) ->
+execute = (query, player, callback) ->
+    okay = (msg) -> callback null, msg
     switch query.verb
         when 'go'
             dir = query.arg.dir
-            room = roomOf player
-            if room.exits and dir of room.exits
-                newLoc = room.exits[dir]
-                newRoom = world.get newLoc
-                if newRoom
-                    room = newRoom
-                    player.set loc: newLoc
-                    return cb null, look room
-            cb null, "You can't go that way."
+            roomOf player, (room) ->
+                if room.exits and dir of room.exits
+                    newLoc = room.exits[dir]
+                    U.get universe.Room, newLoc, (err, newRoom) ->
+                        if err then throw err
+                        room = newRoom
+                        player.set loc: newLoc
+                        return okay look room
+                else
+                    okay "You can't go that way."
         when 'dig'
             dir = query.arg.dir
             backDir = dirOpposites[dir]
             if not dir or not backDir
-                return cb null, "That's not a direction."
-            oldId = player.get 'loc'
-            room = roomById oldId
-            if not room.exits
-                room.exits = {}
-            if dir of room.exits
-                return cb null, "That's already an exit."
-            newRoom = {exits: {}}
-            world.createRoom newRoom, (err, id) ->
-                if err
-                    cb err
-                else
-                    room.exits[dir] = id
-                    newRoom.exits[backDir] = oldId
-                    cb null, 'Dug.'
+                return okay "That's not a direction."
+            roomOf player, (oldRoom) ->
+                if dir of oldRoom.exits
+                    return okay "That's already an exit."
+                U.create universe.Room, (err, newRoom) ->
+                    if err then throw err
+                    oldRoom.exits[dir] = newRoom.id
+                    newRoom.exits[backDir] = oldRoom.id
+                    m = U.begin()
+                    m.save universe.Room, oldRoom
+                    m.save universe.Room, newRoom
+                    m.end (err) ->
+                        if err then throw err
+                        #player.set loc: newRoom.id
+                        okay 'Dug.'
         when 'look'
-            cb null, look roomOf player
+            roomOf player, (room) ->
+                okay look room
         else
-            cb null, "What?"
+            okay "What?"
 
 look = (room) ->
-    if not room.vis
-        return "Can't see shit captain."
-    desc = room.vis.desc
+    vis = room.get 'vis'
+    desc = "Can't see shit captain."
+    if vis and vis.desc
+        desc = vis.desc
     if room.exits
         desc += ' Exits:'
-        for exit of room.exits
+        for exit of room.get 'exits'
             desc += " #{exit}"
     desc
 
@@ -92,8 +88,8 @@ handler = (req, resp) ->
                     else
                         reply result: msg
             catch e
-                console.error e
                 reply error: 'Server error.'
+                throw e # debug
         return
     # TEMP debug
     if req.url == '/'
