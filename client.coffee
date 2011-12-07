@@ -80,9 +80,9 @@ $input.on 'keydown', (event) ->
 
 choose = (word) ->
     if pos.need == 'verb'
-        if word == 'go'
+        if word == 'go' or word == 'dig'
             delete pos.need
-            pos.verb = 'go'
+            pos.verb = word
             pos.arg = up: pos, need: 'dir'
             pos = pos.arg
         else if word == 'look'

@@ -11,6 +11,16 @@ class World extends Backbone.Model
     initialize: (rooms) ->
         @set rooms
 
+    createRoom: (room, cb) ->
+        r.incr "roomCtr", (err, id) =>
+            if err then return cb err
+            if @has id
+                return cb "Room of id #{id} already exists!"
+            info = {}
+            info[id] = room
+            @set info
+            cb null, id
+
 class Player extends Backbone.Model
     initialize: ->
         @set loc: 1
@@ -37,13 +47,21 @@ exports.loadWorld = (cb) ->
         async.forEach roomNumbers, loadRoom, (err) ->
             if err
                 return cb err
+            world = new World roomMap
             console.log "Loaded #{count} rooms."
-            cb null, new World(roomMap), count
+            cb null, world, count
 
-exports.addSimpleRooms = (world) ->
+exports.addSimpleRooms = (world, cb) ->
     world.set
         1: {vis: {desc: 'You are at home.'}, exits: {north: 2}}
         2: {vis: {desc: 'You are outside.'}, exits: {south: 1}}
+    r.get 'roomCtr', (err, count) ->
+        if err
+            cb err
+        else if count < 2
+            r.set 'roomCtr', 2, cb
+        else
+            cb null
 
 exports.saveWorld = (world, cb) ->
     worldIndex = 1

@@ -11,14 +11,20 @@ universe.loadWorld (err, w, count) ->
     if err then throw err
     world = w
     if count == 0
-        universe.addSimpleRooms world
-        universe.saveWorld world, (err) ->
+        universe.addSimpleRooms world, (err) ->
             if err then throw err
+            universe.saveWorld world, (err) ->
+                if err then throw err
+
+roomById = (id) ->
+    world.get id
 
 roomOf = (player) ->
-    world.get player.get 'loc'
+    roomById player.get 'loc'
 
-execute = (query, player) ->
+dirOpposites = north: 'south', south: 'north', west: 'east', east: 'west'
+
+execute = (query, player, cb) ->
     switch query.verb
         when 'go'
             dir = query.arg.dir
@@ -29,14 +35,35 @@ execute = (query, player) ->
                 if newRoom
                     room = newRoom
                     player.set loc: newLoc
-                    return look room
-            "You can't go that way."
+                    return cb null, look room
+            cb null, "You can't go that way."
+        when 'dig'
+            dir = query.arg.dir
+            backDir = dirOpposites[dir]
+            if not dir or not backDir
+                return cb null, "That's not a direction."
+            oldId = player.get 'loc'
+            room = roomById oldId
+            if not room.exits
+                room.exits = {}
+            if dir of room.exits
+                return cb null, "That's already an exit."
+            newRoom = {exits: {}}
+            world.createRoom newRoom, (err, id) ->
+                if err
+                    cb err
+                else
+                    room.exits[dir] = id
+                    newRoom.exits[backDir] = oldId
+                    cb null, 'Dug.'
         when 'look'
-            look roomOf player
+            cb null, look roomOf player
         else
-            "What?"
+            cb null, "What?"
 
 look = (room) ->
+    if not room.vis
+        return "Can't see shit captain."
     desc = room.vis.desc
     if room.exits
         desc += ' Exits:'
@@ -49,18 +76,25 @@ handler = (req, resp) ->
         query = req.body.q
         user = req.body.u
         result = null
+        reply = (packet) ->
+            resp.writeHead 200, {'Content-Type': 'application/json'}
+            resp.end JSON.stringify packet
         if not user or user not of players
-            result = error: 'No login.'
+            reply error: 'No login.'
         else if typeof query != 'object'
-            result = error: 'Bad query.'
+            reply error: 'Bad query.'
         else
             try
-                result = result: execute query, players[user]
+                execute query, players[user], (err, msg) ->
+                    if err
+                        console.error err
+                        reply error: 'Game error.'
+                    else
+                        reply result: msg
             catch e
                 console.error e
-                result = error: 'Server error.'
-        resp.writeHead 200, {'Content-Type': 'application/json'}
-        resp.end JSON.stringify result
+                reply error: 'Server error.'
+        return
     # TEMP debug
     if req.url == '/'
         resp.writeHead 200
