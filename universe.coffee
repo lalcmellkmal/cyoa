@@ -5,14 +5,14 @@ async = require 'async'
 redisClient = ->
     require('redis').createClient()
 
-r = redisClient()
+db = redisClient()
 
 class World extends Backbone.Model
     initialize: (rooms) ->
         @set rooms
 
     createRoom: (room, cb) ->
-        r.incr "roomCtr", (err, id) =>
+        db.incr "roomCtr", (err, id) =>
             if err then return cb err
             if @has id
                 return cb "Room of id #{id} already exists!"
@@ -29,13 +29,13 @@ exports.Player = Player
 exports.loadWorld = (cb) ->
     worldIndex = 1
     key = "world:#{worldIndex}"
-    r.smembers "#{key}:rooms", (err, roomNumbers) ->
+    db.smembers "#{key}:rooms", (err, roomNumbers) ->
         if err
             cb err
         roomMap = {}
         count = 0
         loadRoom = (id, cb) ->
-            r.hgetall "room:#{id}", (err, roomBlob) ->
+            db.hgetall "room:#{id}", (err, roomBlob) ->
                 if err
                     return cb err
                 room = {}
@@ -55,17 +55,17 @@ exports.addSimpleRooms = (world, cb) ->
     world.set
         1: {vis: {desc: 'You are at home.'}, exits: {north: 2}}
         2: {vis: {desc: 'You are outside.'}, exits: {south: 1}}
-    r.get 'roomCtr', (err, count) ->
+    db.get 'roomCtr', (err, count) ->
         if err
             cb err
         else if count < 2
-            r.set 'roomCtr', 2, cb
+            db.set 'roomCtr', 2, cb
         else
             cb null
 
 exports.saveWorld = (world, cb) ->
     worldIndex = 1
-    m = r.multi()
+    m = db.multi()
     roomIds = []
     count = 0
     for id, roomObj of world.attributes
