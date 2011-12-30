@@ -112,7 +112,7 @@ suggest = ->
         when 'desc'
             return hide()
         when 'verb'
-            sugs = ['go', 'desc', 'dig', 'look']
+            sugs = ['go', 'desc', 'dig', 'look'].concat(cardinals)
         when 'dir'
             sugs = cardinals
     sugs = (sug for sug in sugs when sug.indexOf(word) == 0)
@@ -161,6 +161,10 @@ choose = (word) ->
             pos = pos.arg
         else if word == 'look'
             pos.verb = 'look'
+            pos.done = true
+        else if word in cardinals
+            pos.verb = 'go'
+            pos.arg = up: pos, dir: word
             pos.done = true
         else
             found = false
