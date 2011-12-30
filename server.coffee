@@ -63,9 +63,7 @@ execute = (query, player, cb) ->
             cb null, "What?"
 
 look = (room) ->
-    if not room.vis
-        return "Can't see shit captain."
-    desc = room.vis.desc
+    desc = room.vis?.desc or "Can't see shit captain."
     if room.exits
         desc += ' Exits:'
         for exit of room.exits
