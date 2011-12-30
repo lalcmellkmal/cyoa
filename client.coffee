@@ -297,5 +297,8 @@ loadAccount = ->
 $(document).ready ->
     loadAccount()
     reset()
+    choose 'look'
+    execute()
+    reset()
     construct()
     suggest()
