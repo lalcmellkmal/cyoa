@@ -42,6 +42,10 @@ span {
 	background-color: #aacbef;
 }
 
+.desc:before, .desc:after {
+	content: '"';
+}
+
 .error {
 	color: red;
 }

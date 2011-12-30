@@ -57,6 +57,13 @@ execute = (query, player, cb) ->
                     newRoom.exits[backDir] = oldId
                     player.set loc: id
                     return cb null, 'Dug. ' + look newRoom
+        when 'desc'
+            newDesc = query.arg.desc.slice 0, 140
+            room = roomOf player
+            if not room.vis
+                room.vis = {}
+            room.vis.desc = newDesc
+            cb null, 'Description set.'
         when 'look'
             cb null, look roomOf player
         else

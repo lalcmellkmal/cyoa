@@ -56,10 +56,28 @@ $input.on 'keydown', (event) ->
     atLeft = box.selectionStart == 0 and box.selectionEnd == 0
     len = $input.val().length
     atRight = box.selectionStart == len and box.selectionEnd == len
+
+    if event.which == 8
+        if atLeft
+            backspace()
+            construct()
+
     changed = false
-    if event.which in [9, 13, 32]
-        event.preventDefault()
-        changed = tryChoice $input.val()
+
+    if pos.need != 'desc'
+        # One-word completion
+        if event.which in [9, 13, 32]
+            event.preventDefault()
+            changed = tryChoice $input.val()
+    else
+        # Free-form description
+        if event.which in [9, 13]
+            event.preventDefault()
+            delete pos.need
+            pos.desc = $input.val()
+            backUp()
+            changed = true
+
     if event.which == 13 and root.done
         execute()
         reset()
@@ -68,10 +86,6 @@ $input.on 'keydown', (event) ->
         $input.val ''
         construct()
         return
-    if event.which == 8
-        if atLeft
-            backspace()
-            construct()
     ###
     else if event.which == 37
         if atLeft
@@ -82,13 +96,16 @@ $input.on 'keydown', (event) ->
     ###
 
 suggest = ->
-    word = $input.val()
     sugs = []
     switch pos.need
+        when 'desc'
+            $suggest.hide()
+            return
         when 'verb'
-            sugs = ['go', 'dig', 'look']
+            sugs = ['go', 'desc', 'dig', 'look']
         when 'dir'
             sugs = cardinals
+    word = $input.val()
     sugs = (sug for sug in sugs when sug.indexOf(word) == 0)
     sugs.sort()
     $suggest.empty()
@@ -118,21 +135,37 @@ tryChoice = (word) ->
         false
 
 choose = (word) ->
+    orig = pos
     if pos.need == 'verb'
-        if word == 'go' or word == 'dig'
-            delete pos.need
+        found = true
+        if word in ['go', 'dig']
             pos.verb = word
             pos.arg = up: pos, need: 'dir'
             pos = pos.arg
+        else if word == 'desc'
+            pos.verb = word
+            pos.arg = up: pos, need: 'desc'
+            pos = pos.arg
         else if word == 'look'
-            delete pos.need
             pos.verb = 'look'
             pos.done = true
+        else
+            found = false
     else if pos.need == 'dir'
         if word in cardinals
             delete pos.need
             pos.dir = word
             backUp()
+        else
+            found = false
+    else if pos.need == 'desc'
+        # shouldn't get here?
+    else
+        found = false
+
+    if found
+        delete orig.need
+
 
 backspace = ->
     target = pos
@@ -141,9 +174,14 @@ backspace = ->
         # Find last child
         if target.arg
             pos = target.arg
-            $input.val (pos.dir + ' ')
-            delete pos.dir
-            pos.need = 'dir'
+            if pos.dir
+                $input.val (pos.dir + ' ')
+                delete pos.dir
+                pos.need = 'dir'
+            else if pos.desc
+                $input.val (pos.desc + ' ')
+                delete pos.desc
+                pos.need = 'desc'
         else
             $input.val (target.verb + ' ')
             target.need = 'verb'
@@ -165,7 +203,7 @@ feedback = (msg) ->
 logError = (msg) ->
     $log.append $('<p class="error"/>').text msg
 
-vis = ['need', 'verb', 'dir', 'arg']
+vis = ['need', 'verb', 'dir', 'arg', 'desc']
 
 visualize = (node) ->
     $ul = $ '<ul/>'
@@ -190,6 +228,10 @@ construct = ->
     flat = ["> "]
     go = (node) ->
         if node.need
+            if node.need == 'desc'
+                $entryArea.attr class: 'desc'
+            else
+                $entryArea.removeAttr 'class'
             flat.push $entryArea
         else if node.verb
             flat.push node.verb
@@ -197,7 +239,10 @@ construct = ->
                 go node.arg
         else if node.dir
             flat.push node.dir
+        else if node.desc
+            flat.push "\"#{node.desc}\""
         if node.done
+            $entryArea.removeAttr 'class'
             flat.push $entryArea
     go root
     $entryArea.detach() # Don't want to lose our attached events
