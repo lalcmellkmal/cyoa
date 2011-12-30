@@ -101,15 +101,16 @@ $input.on 'keydown', (event) -> scrollLock ->
     ###
 
 suggest = ->
+    hide = ->
+        $suggest.hide()
+
     word = $input.val()
     if not DEBUG and not word
-        $suggest.hide()
-        return
+        return hide()
     sugs = []
     switch pos.need
         when 'desc'
-            $suggest.hide()
-            return
+            return hide()
         when 'verb'
             sugs = ['go', 'desc', 'dig', 'look']
         when 'dir'
@@ -122,7 +123,10 @@ suggest = ->
         $('<li/>').text(sug).appendTo $suggest
         empty = false
     lastSugs = sugs
-    if empty then $suggest.hide() else $suggest.show()
+    if empty
+        hide()
+    else
+        $suggest.show()
 
 $input.input -> scrollLock -> suggest()
 
@@ -212,7 +216,7 @@ scrollLock = (f) ->
     ret = f.call this
     height = $doc.height()
     if height > orig
-        window.scrollBy 0, height - orig + 1
+        window.scrollBy 0, height - orig + 60
 
 feedback = (msg) ->
     $log.append $('<p/>').text msg
@@ -282,6 +286,7 @@ construct = ->
 reset = ->
     root = {need: 'verb'}
     pos = root
+    lastSugs = []
 
 loadAccount = ->
     userId = '42'
