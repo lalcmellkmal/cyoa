@@ -1,8 +1,7 @@
+config = require './config'
 connect = require 'connect'
 fs = require 'fs'
 universe = require './universe'
-
-media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js', 'input.js']
 
 players = '42': new universe.Player
 
@@ -113,15 +112,20 @@ handler = (req, resp) ->
                 reply error: 'Server error.'
         return
     # TEMP debug
-    if req.url == '/'
-        resp.writeHead 200
-        resp.end fs.readFileSync 'index.html'
-    else if req.url.slice(1) in media
-        resp.writeHead 200
-        resp.end fs.readFileSync req.url.slice(1)
-    else
-        resp.writeHead 404
-        resp.end 'Not found'
+    if config.DEBUG
+        name = req.url.slice 1
+        if name == ''
+            resp.writeHead 200, {'Content-Type': 'text/html; charset=UTF-8'}
+            resp.end fs.readFileSync 'index.html'
+        else if name in media
+            mime = if name.match /\.js$/ then 'application/javascript' else 'text/css'
+            resp.writeHead 200, {'Content-Type': mime}
+            resp.end fs.readFileSync req.url.slice(1)
+        else
+            resp.writeHead 404
+            resp.end 'Not found'
+
+media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js', 'input.js']
 
 server = connect.createServer connect.bodyParser(), handler
-server.listen 8000
+server.listen config.PORT

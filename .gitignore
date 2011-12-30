@@ -1,2 +1,4 @@
 *.swp
 client.js
+config.coffee
+config.js

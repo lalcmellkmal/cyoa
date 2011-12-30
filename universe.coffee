@@ -1,9 +1,10 @@
+config = require './config'
 Backbone = require 'backbone'
 redis = require 'redis'
 async = require 'async'
 
 redisClient = ->
-    require('redis').createClient()
+    require('redis').createClient(config.REDIS_PORT)
 
 db = redisClient()
 
