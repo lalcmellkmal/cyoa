@@ -55,15 +55,26 @@ execute = (query, player, cb) ->
                 else
                     room.exits[dir] = id
                     newRoom.exits[backDir] = oldId
-                    player.set loc: id
-                    return cb null, 'Dug. ' + look newRoom
+                    universe.saveWorld world, (err) ->
+                        if err
+                            # Should really delete the botched room
+                            # but whatever we're getting rid of save()
+                            # soon enough
+                            cb err
+                        else
+                            player.set loc: id
+                            cb null, 'Dug. ' + look newRoom
         when 'desc'
             newDesc = query.arg.desc.slice 0, 140
             room = roomOf player
             if not room.vis
                 room.vis = {}
             room.vis.desc = newDesc
-            cb null, 'Description set.'
+            universe.saveWorld world, (err) ->
+                if err
+                    cb err
+                else
+                    cb null, 'Description set.'
         when 'look'
             cb null, look roomOf player
         else
