@@ -3,7 +3,7 @@ connect = require 'connect'
 fs = require 'fs'
 universe = require './universe'
 
-players = '42': new universe.Player
+players = {}
 
 world = null
 universe.loadWorld (err, w, count) ->
@@ -92,21 +92,25 @@ handler = (req, resp) ->
         query = req.body.q
         user = req.body.u
         result = null
+        prefix = ''
         reply = (packet) ->
             resp.writeHead 200, {'Content-Type': 'application/json'}
             resp.end JSON.stringify packet
-        if not user or user not of players
+        if not user
             reply error: 'No login.'
         else if typeof query != 'object'
             reply error: 'Bad query.'
         else
+            if user not of players
+                players[user] = new universe.Player
+                prefix = 'Welcome. '
             try
                 execute query, players[user], (err, msg) ->
                     if err
                         console.error err
                         reply error: 'Game error.'
                     else
-                        reply result: msg
+                        reply result: "#{prefix}#{msg}"
             catch e
                 console.error e
                 reply error: 'Server error.'

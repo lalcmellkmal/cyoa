@@ -289,7 +289,10 @@ reset = ->
     lastSugs = []
 
 loadAccount = ->
-    userId = '42'
+    userId = localStorage.getItem 'playerId'
+    if not userId
+        userId = Math.floor(Math.random() * 1e17) + 1
+        localStorage.setItem 'playerId', userId
 
 $(document).ready ->
     loadAccount()
