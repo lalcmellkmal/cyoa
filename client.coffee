@@ -4,7 +4,7 @@ $entryArea = $ 'b span'
 $input = $entryArea.find 'input'
 $suggest = $entryArea.find 'ol'
 
-oldSugs = []
+lastSugs = []
 cardinals = ['north', 'south', 'east', 'west']
 
 DEBUG = false
@@ -68,7 +68,11 @@ $input.on 'keydown', (event) -> scrollLock ->
         # One-word completion
         if event.which in [9, 13, 32]
             event.preventDefault()
-            changed = tryChoice $input.val()
+            # Try to complete
+            val = $input.val()
+            if event.which == 9 and lastSugs.length == 1
+                val = lastSugs[0]
+            changed = tryChoice val
     else
         # Free-form description
         if event.which in [9, 13]
@@ -115,6 +119,7 @@ suggest = ->
     for sug in sugs
         $('<li/>').text(sug).appendTo $suggest
         empty = false
+    lastSugs = sugs
     if empty then $suggest.hide() else $suggest.show()
 
 $input.input -> scrollLock -> suggest()
