@@ -17,6 +17,8 @@ sentence = []
 root = pos = null
 
 execute = ->
+    flat = (t for t in flatten root when typeof t == 'string')
+    feedback flat.join ' '
     strip root
     $.ajax
         type: 'POST',
