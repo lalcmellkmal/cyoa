@@ -236,17 +236,10 @@ visualize = (node) ->
         $ul.css color: 'blue'
     $ul
 
-construct = ->
-    if DEBUG
-        $debug.children().remove()
-        $debug.append visualize(root)
+flatten = (root) ->
     flat = ["> "]
     go = (node) ->
         if node.need
-            if node.need == 'desc'
-                $entryArea.attr class: 'desc'
-            else
-                $entryArea.removeAttr 'class'
             flat.push $entryArea
         else if node.verb
             flat.push node.verb
@@ -257,9 +250,15 @@ construct = ->
         else if node.desc
             flat.push "\"#{node.desc}\""
         if node.done
-            $entryArea.removeAttr 'class'
             flat.push $entryArea
     go root
+    flat
+
+construct = ->
+    if DEBUG
+        $debug.children().remove()
+        $debug.append visualize(root)
+    flat = flatten root, flat
     $entryArea.detach() # Don't want to lose our attached events
     $line.empty()
     for bit in flat
@@ -267,10 +266,15 @@ construct = ->
             $line.append document.createTextNode (bit + ' ')
         else
             $line.append bit
+
     if pos.done
         $line.attr class: 'done'
     else
         $line.removeAttr 'class'
+    if pos.need == 'desc'
+        $entryArea.attr class: 'desc'
+    else
+        $entryArea.removeAttr 'class'
     $input.focus()
 
 reset = ->
