@@ -7,7 +7,7 @@ $suggest = $entryArea.find 'ol'
 oldSugs = []
 cardinals = ['north', 'south', 'east', 'west']
 
-DEBUG = true
+DEBUG = false
 if DEBUG
     $debug = $('<div/>').css({'margin-top': '10em'}).insertAfter $line
 
@@ -95,6 +95,10 @@ $input.on 'keydown', (event) -> scrollLock ->
     ###
 
 suggest = ->
+    word = $input.val()
+    if not DEBUG and not word
+        $suggest.hide()
+        return
     sugs = []
     switch pos.need
         when 'desc'
@@ -104,7 +108,6 @@ suggest = ->
             sugs = ['go', 'desc', 'dig', 'look']
         when 'dir'
             sugs = cardinals
-    word = $input.val()
     sugs = (sug for sug in sugs when sug.indexOf(word) == 0)
     sugs.sort()
     $suggest.empty()
