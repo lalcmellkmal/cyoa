@@ -12,6 +12,36 @@ input {
 	vertical-align: baseline;
 }
 
+ol {
+	background-color: white;
+	list-style-type: none;
+	margin: 0 0 0 0;
+	padding: 0;
+	position: absolute;
+	border: 1px solid #bbb;
+	-moz-box-shadow:    0 4px 6px 0px #ccc;
+	box-shadow:         0 4px 6px 0px #ccc;
+	-webkit-box-shadow: 0 4px 6px 0px #ccc;
+}
+
+ol li {
+	cursor: pointer;
+	font-weight: normal;
+	padding: 0.2em;
+	padding-right: 1em;
+}
+ol li:hover {
+	background-color: #eee;
+}
+
+span {
+	position: relative;
+}
+
+#sel {
+	background-color: #aacbef;
+}
+
 .error {
 	color: red;
 }

@@ -2,7 +2,7 @@ connect = require 'connect'
 fs = require 'fs'
 universe = require './universe'
 
-media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js']
+media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js', 'input.js']
 
 players = '42': new universe.Player
 

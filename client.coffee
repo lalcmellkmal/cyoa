@@ -1,7 +1,15 @@
-$input = $ 'input'
 $log = $ 'article'
-$debug = $ 'div'
 $line = $ 'b'
+$entryArea = $ 'b span'
+$input = $entryArea.find 'input'
+$suggest = $entryArea.find 'ol'
+
+oldSugs = []
+cardinals = ['north', 'south', 'east', 'west']
+
+DEBUG = true
+if DEBUG
+    $debug = $('<div/>').css({'margin-top': '10em'}).insertAfter $line
 
 userId = null
 
@@ -51,12 +59,7 @@ $input.on 'keydown', (event) ->
     changed = false
     if event.which in [9, 13, 32]
         event.preventDefault()
-        word = $input.val()
-        orig = pos
-        origDone = pos.done
-        choose word
-        if orig != pos or origDone != pos.done
-            changed = true
+        changed = tryChoice $input.val()
     if event.which == 13 and root.done
         execute()
         reset()
@@ -78,6 +81,42 @@ $input.on 'keydown', (event) ->
             feedback 'right'
     ###
 
+suggest = ->
+    word = $input.val()
+    sugs = []
+    switch pos.need
+        when 'verb'
+            sugs = ['go', 'dig', 'look']
+        when 'dir'
+            sugs = cardinals
+    sugs = (sug for sug in sugs when sug.indexOf(word) == 0)
+    sugs.sort()
+    $suggest.empty()
+    empty = true
+    for sug in sugs
+        $('<li/>').text(sug).appendTo $suggest
+        empty = false
+    if empty then $suggest.hide() else $suggest.show()
+
+$input.input suggest
+
+$entryArea.on 'click', 'li', (event) ->
+    event.preventDefault()
+    if tryChoice $(event.target).text()
+        $input.val ''
+        construct()
+        suggest()
+
+tryChoice = (word) ->
+    orig = pos
+    origDone = pos.done
+    choose word
+    if orig != pos or origDone != pos.done
+        $suggest.hide()
+        true
+    else
+        false
+
 choose = (word) ->
     if pos.need == 'verb'
         if word == 'go' or word == 'dig'
@@ -90,7 +129,7 @@ choose = (word) ->
             pos.verb = 'look'
             pos.done = true
     else if pos.need == 'dir'
-        if word in ['north', 'south', 'east', 'west']
+        if word in cardinals
             delete pos.need
             pos.dir = word
             backUp()
@@ -145,12 +184,13 @@ visualize = (node) ->
     $ul
 
 construct = ->
-    $debug.children().remove()
-    $debug.append visualize(root)
-    flat = []
+    if DEBUG
+        $debug.children().remove()
+        $debug.append visualize(root)
+    flat = ["> "]
     go = (node) ->
         if node.need
-            flat.push $input
+            flat.push $entryArea
         else if node.verb
             flat.push node.verb
             if node.arg
@@ -158,9 +198,9 @@ construct = ->
         else if node.dir
             flat.push node.dir
         if node.done
-            flat.push $input
+            flat.push $entryArea
     go root
-    $input.detach()
+    $entryArea.detach() # Don't want to lose our attached events
     $line.empty()
     for bit in flat
         if typeof bit == 'string'
@@ -180,3 +220,4 @@ $(document).ready ->
     loadAccount()
     reset()
     construct()
+    suggest()
