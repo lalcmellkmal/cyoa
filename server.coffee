@@ -55,7 +55,8 @@ execute = (query, player, cb) ->
                 else
                     room.exits[dir] = id
                     newRoom.exits[backDir] = oldId
-                    cb null, 'Dug.'
+                    player.set loc: id
+                    return cb null, 'Dug. ' + look newRoom
         when 'look'
             cb null, look roomOf player
         else
