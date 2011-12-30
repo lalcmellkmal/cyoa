@@ -74,7 +74,7 @@ execute = (query, player, cb) ->
                 if err
                     cb err
                 else
-                    cb null, 'Description set.'
+                    cb null, 'Changed. ' + look room
         when 'look'
             cb null, look roomOf player
         else
