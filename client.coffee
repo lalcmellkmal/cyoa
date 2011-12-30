@@ -262,6 +262,10 @@ construct = ->
             $line.append document.createTextNode (bit + ' ')
         else
             $line.append bit
+    if pos.done
+        $line.attr class: 'done'
+    else
+        $line.removeAttr 'class'
     $input.focus()
 
 reset = ->

@@ -46,6 +46,10 @@ span {
 	content: '"';
 }
 
+.done {
+	color: green;
+}
+
 .error {
 	color: red;
 }
