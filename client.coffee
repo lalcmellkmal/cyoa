@@ -51,7 +51,7 @@ backUp = ->
             pos.done = true
             break
 
-$input.on 'keydown', (event) ->
+$input.on 'keydown', (event) -> scrollLock ->
     box = $input[0]
     atLeft = box.selectionStart == 0 and box.selectionEnd == 0
     len = $input.val().length
@@ -85,7 +85,6 @@ $input.on 'keydown', (event) ->
     if changed
         $input.val ''
         construct()
-        return
     ###
     else if event.which == 37
         if atLeft
@@ -115,9 +114,9 @@ suggest = ->
         empty = false
     if empty then $suggest.hide() else $suggest.show()
 
-$input.input suggest
+$input.input -> scrollLock -> suggest()
 
-$entryArea.on 'click', 'li', (event) ->
+$entryArea.on 'click', 'li', (event) -> scrollLock ->
     event.preventDefault()
     if tryChoice $(event.target).text()
         $input.val ''
@@ -196,6 +195,14 @@ backspace = ->
                 delete pos.arg
                 delete pos.verb
                 pos.need = 'verb'
+
+scrollLock = (f) ->
+    $doc = $ document
+    orig = $doc.height()
+    ret = f.call this
+    height = $doc.height()
+    if height > orig
+        window.scrollBy 0, height - orig + 1
 
 feedback = (msg) ->
     $log.append $('<p/>').text msg
