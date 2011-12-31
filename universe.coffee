@@ -26,7 +26,6 @@ class World
             m = db.multi()
             m.hmset key, info
             m.sadd "#{@worldKey}:rooms", id
-            m.incr "#{@worldKey}:roomCount"
             m.exec cb
 
     updateRoom: (id, k, v, cb) ->
@@ -55,7 +54,7 @@ class World
         db.get "#{@worldKey}:startingRoom", cb
 
     getRoomCount: (cb) ->
-        db.get "#{@worldKey}:roomCount", (err, count) ->
+        db.scard "#{@worldKey}:rooms", (err, count) ->
             if err then cb err else cb null, parseInt(count, 10)
 
 exports.World = World
