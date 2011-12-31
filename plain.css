@@ -19,6 +19,7 @@ input {
 	resize: none;
 	text-wrap: none;
 	vertical-align: baseline;
+	width: 50%;
 }
 
 ol {
