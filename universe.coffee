@@ -1,88 +1,74 @@
+_ = require 'underscore'
 config = require './config'
-Backbone = require 'backbone'
 redis = require 'redis'
-async = require 'async'
 
 redisClient = ->
     require('redis').createClient(config.REDIS_PORT)
 
 db = redisClient()
 
-class World extends Backbone.Model
-    initialize: (rooms) ->
-        @set rooms
+class World
+    constructor: (worldIndex) ->
+        @worldKey = "world:#{worldIndex}"
 
-    createRoom: (room, cb) ->
+    allocRoom: (cb) ->
         db.incr "roomCtr", (err, id) =>
+            if err then cb err else cb null, id
+
+    createRoom: (id, room, cb) ->
+        key = "room:#{id}"
+        db.exists key, (err, exists) =>
             if err then return cb err
-            if @has id
-                return cb "Room of id #{id} already exists!"
+            if exists then return cb "Room ##{id} already exists!"
             info = {}
-            info[id] = room
-            @set info
-            cb null, id
+            for k, v of room
+                info[k] = JSON.stringify v
+            m = db.multi()
+            m.hmset key, info
+            m.sadd "#{@worldKey}:rooms", id
+            m.incr "#{@worldKey}:roomCount"
+            m.exec cb
 
-class Player extends Backbone.Model
-    initialize: ->
-        @set loc: 1
-exports.Player = Player
+    updateRoom: (id, k, v, cb) ->
+        key = "room:#{id}"
+        db.exists key, (err, exists) ->
+            if err then return cb err
+            if not exists then return cb "No room ##{id}"
+            db.hset key, k, JSON.stringify(v), cb
 
-exports.loadWorld = (cb) ->
-    worldIndex = 1
-    key = "world:#{worldIndex}"
-    db.smembers "#{key}:rooms", (err, roomNumbers) ->
-        if err
-            cb err
-        roomMap = {}
-        count = 0
-        loadRoom = (id, cb) ->
-            db.hgetall "room:#{id}", (err, roomBlob) ->
-                if err
-                    return cb err
-                room = {}
-                for key, val of roomBlob
-                    room[key] = JSON.parse val
-                roomMap[id] = room
-                count++
-                cb null
-        async.forEach roomNumbers, loadRoom, (err) ->
-            if err
-                return cb err
-            world = new World roomMap
-            console.log "Loaded #{count} rooms."
-            cb null, world, count
+    getRoom: (id, cb) ->
+        db.hgetall "room:#{id}", (err, info) =>
+            if err then return cb err
+            if _.isEmpty info then return cb "No such room."
+            room = {}
+            try
+                for k, v of info
+                    room[k] = JSON.parse v
+            catch e
+                return cb e
+            cb null, room
 
-exports.addSimpleRooms = (world, cb) ->
-    world.set
-        1: {vis: {desc: 'You are at home.'}, exits: {north: 2}}
-        2: {vis: {desc: 'You are outside.'}, exits: {south: 1}}
-    db.get 'roomCtr', (err, count) ->
-        if err
-            cb err
-        else if count < 2
-            db.set 'roomCtr', 2, cb
-        else
+    setStartingRoom: (id, cb) ->
+        db.set "#{@worldKey}:startingRoom", id, cb
+
+    getStartingRoom: (cb) ->
+        db.get "#{@worldKey}:startingRoom", cb
+
+    getRoomCount: (cb) ->
+        db.get "#{@worldKey}:roomCount", (err, count) ->
+            if err then cb err else cb null, parseInt(count, 10)
+
+exports.World = World
+
+class Player
+    enterWorld: (world, cb) ->
+        world.getStartingRoom (err, id) =>
+            if err then return cb err
+            @loc = id
+            @world = world
             cb null
 
-exports.saveWorld = (world, cb) ->
-    worldIndex = 1
-    m = db.multi()
-    roomIds = []
-    count = 0
-    for id, roomObj of world.attributes
-        roomIds.push id
-        room = {}
-        for key, val of roomObj
-            room[key] = JSON.stringify val
-        roomKey = "room:#{id}"
-        m.del roomKey
-        m.hmset roomKey, room
-        count++
-    key = "world:#{worldIndex}"
-    roomsKey = "#{key}:rooms"
-    m.del roomsKey
-    m.sadd roomsKey, roomIds
-    m.exec (err, rs) ->
-        if not err
-            console.log "Saved #{count} rooms."
-        cb err
+    getRoom: (cb) ->
+        @world.getRoom @loc, cb
+
+exports.Player = Player

@@ -5,18 +5,22 @@ universe = require './universe'
 
 players = {}
 
-world = null
-universe.loadWorld (err, w, count) ->
-    if err then throw err
-    world = w
-    if count == 0
-        universe.addSimpleRooms world, (err) ->
-            if err then throw err
-            universe.saveWorld world, (err) ->
-                if err then throw err
+plural = (word, count) ->
+    if parseInt(count, 10) == 1 then word else "#{word}s"
 
-roomById = (id) ->
-    world.get id
+world = new universe.World 1
+world.getRoomCount (err, count) ->
+    if err then throw err
+    if not count
+        world.allocRoom (err, id) ->
+            if err then throw err
+            world.createRoom id, {vis: {desc: 'You are at home.'}}, (err) ->
+                if err then throw err
+                world.setStartingRoom id, (err) ->
+                    if err then throw err
+                    console.log "Made initial room."
+    else
+        console.log "World has #{count} #{plural 'room', count}."
 
 roomOf = (player) ->
     roomById player.get 'loc'
@@ -27,55 +31,63 @@ execute = (query, player, cb) ->
     switch query.verb
         when 'go'
             dir = query.arg.dir
-            room = roomOf player
-            if room.exits and dir of room.exits
-                newLoc = room.exits[dir]
-                newRoom = world.get newLoc
-                if newRoom
-                    room = newRoom
-                    player.set loc: newLoc
-                    return cb null, look room
-            cb null, "You can't go that way."
+            player.getRoom (err, room) ->
+                if err then return cb err
+                if room.exits and dir of room.exits
+                    newLoc = room.exits[dir]
+                    if newLoc
+                        world.getRoom newLoc, (err, newRoom) ->
+                            if err then return cb err
+                            room = newRoom
+                            player.loc = newLoc
+                            cb null, look room
+                        return
+                cb null, "You can't go that way."
+
         when 'dig'
             dir = query.arg.dir
             backDir = dirOpposites[dir]
             if not dir or not backDir
                 return cb null, "That's not a direction."
-            oldId = player.get 'loc'
-            room = roomById oldId
-            if not room.exits
-                room.exits = {}
-            if dir of room.exits
-                return cb null, "That's already an exit."
-            newRoom = {exits: {}}
-            world.createRoom newRoom, (err, id) ->
-                if err
-                    cb err
-                else
-                    room.exits[dir] = id
+            oldId = player.loc
+
+            # JESUS CHRIST HOW HORRIFYING
+            # TODO: Coroutines or monads up in this bitch
+
+            world.getRoom oldId, (err, oldRoom) ->
+                if err then return cb err
+                if not oldRoom.exits
+                    oldRoom.exits = {}
+                if dir of oldRoom.exits
+                    return cb null, "That's already an exit."
+                world.allocRoom (err, id) ->
+                    if err then return cb err
+                    newRoom = {exits: {}}
                     newRoom.exits[backDir] = oldId
-                    universe.saveWorld world, (err) ->
-                        if err
-                            # Should really delete the botched room
-                            # but whatever we're getting rid of save()
-                            # soon enough
-                            cb err
-                        else
-                            player.set loc: id
+                    world.createRoom id, newRoom, (err) ->
+                        if err then return cb err
+                        oldRoom.exits[dir] = id
+                        world.updateRoom oldId, 'exits', oldRoom.exits, (err) ->
+                            if err then return cb err
+                            player.loc = id
                             cb null, 'Dug. ' + look newRoom
+
         when 'desc'
             newDesc = query.arg.desc.slice 0, 140
-            room = roomOf player
-            if not room.vis
-                room.vis = {}
-            room.vis.desc = newDesc
-            universe.saveWorld world, (err) ->
-                if err
-                    cb err
-                else
-                    cb null, 'Changed. ' + look room
+            player.getRoom (err, room) ->
+                if err then return cb err
+                if not room.vis
+                    room.vis = {}
+                room.vis.desc = newDesc
+                world.updateRoom player.loc, 'vis', room.vis, (err) ->
+                    if err
+                        cb err
+                    else
+                        cb null, 'Changed. ' + look room
         when 'look'
-            cb null, look roomOf player
+            player.getRoom (err, room) ->
+                if err then return cb err
+                cb null, look room
         else
             cb null, "What?"
 
@@ -92,7 +104,6 @@ handler = (req, resp) ->
         query = req.body.q
         user = req.body.u
         result = null
-        prefix = ''
         reply = (packet) ->
             resp.writeHead 200, {'Content-Type': 'application/json'}
             resp.end JSON.stringify packet
@@ -101,19 +112,29 @@ handler = (req, resp) ->
         else if typeof query != 'object'
             reply error: 'Bad query.'
         else
-            if user not of players
-                players[user] = new universe.Player
-                prefix = 'Welcome. '
-            try
-                execute query, players[user], (err, msg) ->
+            doIt = (player, prefix) ->
+                try
+                    execute query, player, (err, msg) ->
+                        if err
+                            console.error err?.stack or err
+                            reply error: 'Game error.'
+                        else
+                            reply result: "#{prefix}#{msg}"
+                catch e
+                    console.error e.stack
+                    reply error: 'Server error.'
+
+            if user of players
+                doIt players[user], ''
+            else
+                player = new universe.Player
+                player.enterWorld world, (err) ->
                     if err
                         console.error err
-                        reply error: 'Game error.'
+                        reply error: "Couldn't enter world."
                     else
-                        reply result: "#{prefix}#{msg}"
-            catch e
-                console.error e
-                reply error: 'Server error.'
+                        players[user] = player
+                        doIt player, 'Welcome. '
         return
     # TEMP debug
     if config.DEBUG
