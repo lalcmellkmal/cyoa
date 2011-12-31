@@ -2,6 +2,11 @@ body {
 	padding-bottom: 5em;
 }
 
+em {
+	color: gray;
+	font-style: normal;
+}
+
 input {
 	border: 0;
 	font: 12pt serif;

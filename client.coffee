@@ -29,7 +29,7 @@ execute = ->
             if data.error
                 logError data.error
             else
-                feedback data.result
+                logResult data
         error: ($xhr, textStatus, error) ->
             logError "Couldn't connect to server."
 
@@ -223,7 +223,16 @@ scrollLock = (f) ->
         window.scrollBy 0, height - orig + 60
 
 feedback = (msg) ->
-    $log.append $('<p/>').text msg
+    $('<p/>').text(msg).appendTo $log
+
+logResult = (msg) ->
+    if msg.prefix
+        feedback msg.prefix
+    if msg.msg
+        $p = feedback msg.msg
+        if msg.exits
+            msg.exits.sort()
+            $('<em/>').text(" Exits: #{msg.exits.join ', '}").appendTo $p
 
 logError = (msg) ->
     $log.append $('<p class="error"/>').text msg

@@ -70,7 +70,9 @@ execute = (query, player, cb) ->
                         world.updateRoom oldId, 'exits', oldRoom.exits, (err) ->
                             if err then return cb err
                             player.loc = id
-                            cb null, 'Dug. ' + look newRoom
+                            msg = look newRoom
+                            msg.prefix = 'Dug.'
+                            cb null, msg
 
         when 'desc'
             newDesc = query.arg.desc.slice 0, 140
@@ -83,7 +85,9 @@ execute = (query, player, cb) ->
                     if err
                         cb err
                     else
-                        cb null, 'Changed. ' + look room
+                        msg = look room
+                        msg.prefix = 'Changed.'
+                        cb null, msg
         when 'look'
             player.getRoom (err, room) ->
                 if err then return cb err
@@ -92,12 +96,11 @@ execute = (query, player, cb) ->
             cb null, "What?"
 
 look = (room) ->
-    desc = room.vis?.desc or "Can't see shit captain."
+    vis = {}
+    vis.msg = room.vis?.desc or "Can't see shit captain."
     if room.exits
-        desc += ' Exits:'
-        for exit of room.exits
-            desc += " #{exit}"
-    desc
+        vis.exits = Object.keys room.exits
+    vis
 
 handler = (req, resp) ->
     if req.method == 'POST'
@@ -119,7 +122,11 @@ handler = (req, resp) ->
                             console.error err?.stack or err
                             reply error: 'Game error.'
                         else
-                            reply result: "#{prefix}#{msg}"
+                            if typeof msg == 'string'
+                                msg = msg: msg
+                            if prefix
+                                msg.prefix = prefix
+                            reply msg
                 catch e
                     console.error e.stack
                     reply error: 'Server error.'
