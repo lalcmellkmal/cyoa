@@ -5,7 +5,7 @@ $input = $entryArea.find 'input'
 $suggest = $entryArea.find 'ol'
 
 lastSugs = []
-cardinals = ['north', 'south', 'east', 'west']
+cardinals = ['north', 'south', 'east', 'west', 'up', 'down']
 
 DEBUG = false
 if DEBUG

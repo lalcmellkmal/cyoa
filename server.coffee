@@ -21,7 +21,7 @@ roomById = (id) ->
 roomOf = (player) ->
     roomById player.get 'loc'
 
-dirOpposites = north: 'south', south: 'north', west: 'east', east: 'west'
+dirOpposites = north: 'south', south: 'north', west: 'east', east: 'west', up: 'down', down: 'up'
 
 execute = (query, player, cb) ->
     switch query.verb
