@@ -1,0 +1,7 @@
+var config = {
+    DEBUG: true,
+    PORT: 8000,
+    REDIS_PORT: 6379,
+};
+
+module.exports = config;
