@@ -52,7 +52,6 @@ function execute(query, player, cb) {
             else
                 return "You can't go that way.";
         }
-            break;
 
         case 'dig':
         {
@@ -76,7 +75,6 @@ function execute(query, player, cb) {
             msg.prefix = 'Dug.';
             return msg;
         }
-            break;
 
         case 'desc':
         {
@@ -90,14 +88,12 @@ function execute(query, player, cb) {
             msg.prefix = 'Changed.'
             return msg;
         }
-            break;
 
         case 'look':
         {
             room <- player.getRoom();
             return look(room);
         }
-            break;
  
         default:
             cb(null, "What?");
