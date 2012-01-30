@@ -1,9 +1,14 @@
-all: server.js client.js
+OUT = server.js universe.js client.js
 
-client.js:
-	coffee -c client.coffee
+all: $(OUT)
 
-server.js: server.nl
+client.js: client.coffee
+	coffee -c $<
+
+%.js: %.nl
 	../nestless/nestless.js $< -o $@
 
-.PHONY: server.js
+clean:
+	rm -f -- $(OUT)
+
+.PHONY: all clean
