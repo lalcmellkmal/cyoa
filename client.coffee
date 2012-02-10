@@ -11,7 +11,7 @@ DEBUG = false
 if DEBUG
     $debug = $('<div/>').css({'margin-top': '10em'}).insertAfter $line
 
-userId = null
+socket = null
 
 sentence = []
 root = pos = null
@@ -20,18 +20,7 @@ execute = ->
     flat = (t for t in flatten root when typeof t == 'string')
     feedback flat.join ' '
     strip root
-    $.ajax
-        type: 'POST',
-        data: {q: root, u: userId},
-        dataType: 'json',
-        headers: {Accept: 'application/json'}
-        success: (data, status, $xhr) ->
-            if data.error
-                logError data.error
-            else
-                logResult data
-        error: ($xhr, textStatus, error) ->
-            logError "Couldn't connect to server."
+    socket.emit 'command', root
 
 strip = (node) ->
     if typeof node == 'object'
@@ -304,14 +293,25 @@ reset = ->
 loadAccount = ->
     userId = localStorage.getItem 'playerId'
     if not userId
-        userId = Math.floor(Math.random() * 1e17) + 1
+        userId = "#{Math.floor(Math.random() * 1e17) + 1}"
         localStorage.setItem 'playerId', userId
+    userId
 
-$(document).ready ->
-    loadAccount()
+socket = io.connect()
+socket.on 'connect', ->
+    socket.emit 'login', {id: loadAccount()}
+socket.on 'disconnect', ->
+    logError 'Dropped.'
+socket.on 'login', (result) ->
+    if result
+        logResult result
     reset()
     choose 'look'
     execute()
     reset()
     construct()
     suggest()
+socket.on 'result', (data) ->
+    logResult data
+socket.on 'error', (error) ->
+    logError error
