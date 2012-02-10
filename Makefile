@@ -1,14 +1,20 @@
-OUT = server.js universe.js client.js
+OUT = out out/server.js out/universe.js out/client.js
 
 all: $(OUT)
 
-client.js: client.coffee
-	coffee -c $<
+run: $(OUT)
+	node out/server.js
 
-%.js: %.nl
+out/client.js: client.coffee
+	coffee -o out -c $<
+
+out/%.js: %.nl
 	../nestless/nestless.js $< -o $@
 
+out:
+	mkdir out
+
 clean:
-	rm -f -- $(OUT)
+	rm -rf -- out
 
 .PHONY: all clean
