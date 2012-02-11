@@ -34,11 +34,12 @@ function execute(query, player, cb) {
         case 'go':
         {
             var dir = query.arg.dir;
-            room <- player.getRoom();
+            oldLoc <- player.getLoc();
+            room <- world.getRoom(oldLoc);
             if (room.exits && dir in room.exits) {
                 var newLoc = room.exits[dir];
                 if (newLoc) {
-                    _ <- player.setLoc(newLoc);
+                    _ <- player.move(oldLoc, newLoc);
                     newRoom <- world.getRoom(newLoc);
                     return look(newRoom);
                 }
@@ -56,7 +57,7 @@ function execute(query, player, cb) {
             var dir = query.arg.dir, backDir = dirOpposites[dir];
             if (!dir || !backDir)
                 return "That's not a direction.";
-            oldLoc <- player.getLoc();
+            oldId <- player.getLoc();
             oldRoom <- world.getRoom(oldId);
             if (!oldRoom.exits)
                 oldRoom.exits = {};
@@ -68,7 +69,7 @@ function execute(query, player, cb) {
             _ <- world.createRoom(id, newRoom);
             oldRoom.exits[dir] = id;
             _ <- world.updateRoom(oldId, 'exits', oldRoom.exits);
-            _ <- player.setLoc(id);
+            _ <- player.move(oldId, id);
             var msg = look(newRoom);
             msg.prefix = 'Dug.';
             return msg;
@@ -104,6 +105,8 @@ function look(room) {
     vis.msg = (room.vis && room.vis.desc) || "Can't see shit captain.";
     if (room.exits)
         vis.exits = Object.keys(room.exits);
+    if (room.players)
+        vis.msg += ' Players: ' + room.players;
     return vis;
 }
 

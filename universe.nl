@@ -5,6 +5,7 @@ var _ = require('underscore'),
 function redisClient() {
 	return redis.createClient(config.REDIS_PORT);
 }
+exports.redisClient = redisClient;
 
 var db = redisClient();
 
@@ -42,7 +43,12 @@ W.updateRoom = function (id, k, v, cb) {
 };
 
 W.getRoom = function (id, cb) {
-	info <- db.hgetall("room:" + id);
+	var m = db.multi();
+	var key = "room:" + id;
+	m.hgetall(key);
+	m.smembers(key + ":players");
+	rs <- m.exec();
+	var info = rs[0], players = rs[1];
 	if (!info || _.isEmpty(info))
 		throw "No such room.";
 	var room = {};
@@ -54,6 +60,7 @@ W.getRoom = function (id, cb) {
 		console.error(e);
 		throw "Corrupt room.";
 	}
+	room.players = players || [];
 	return room;
 };
 
@@ -90,7 +97,10 @@ Player.getOrCreate = function (clientId, world, cb) {
 	_ <- db.hset('players:idMap', clientId, playerId);
 
 	roomId <- world.getStartingRoom();
-	_ <- db.set('player:' + playerId + ':loc', roomId);
+	var m = db.multi();
+	m.set('player:' + playerId + ':loc', roomId);
+	m.sadd('room:' + roomId + ':players', playerId);
+	_ <- m.exec();
 	return new Player(playerId, world);
 };
 
@@ -105,8 +115,11 @@ P.getRoom = function (cb) {
 	return room;
 };
 
-P.setLoc = function (loc, cb) {
-	_ <- db.set('player:' + this.id + ':loc', loc);
+P.move = function (oldLoc, newLoc, cb) {
+	moved <- db.smove('room:' + oldLoc + ':players', 'room:' + newLoc + ':players', this.id);
+	if (!moved)
+		throw "Not in the same room anymore.";
+	_ <- db.set('player:' + this.id + ':loc', newLoc);
 	return null;
 };
 
