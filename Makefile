@@ -1,4 +1,4 @@
-OUT = out out/server.js out/universe.js out/client.js
+OUT = out out/server.js out/universe.js out/client.js out/config.js
 
 all: $(OUT)
 
@@ -7,6 +7,9 @@ run: $(OUT)
 
 out/client.js: client.coffee
 	coffee -o out -c $<
+
+out/config.js: config.js
+	cp $< $@
 
 out/%.js: %.nl
 	../nestless/nestless.js $< -o $@
