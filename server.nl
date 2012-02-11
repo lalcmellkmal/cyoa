@@ -38,8 +38,8 @@ function execute(query, player, cb) {
             if (room.exits && dir in room.exits) {
                 var newLoc = room.exits[dir];
                 if (newLoc) {
+                    _ <- player.setLoc(newLoc);
                     newRoom <- world.getRoom(newLoc);
-                    player.loc = newLoc;
                     return look(newRoom);
                 }
                 else {
@@ -56,7 +56,7 @@ function execute(query, player, cb) {
             var dir = query.arg.dir, backDir = dirOpposites[dir];
             if (!dir || !backDir)
                 return "That's not a direction.";
-            var oldId = player.loc;
+            oldLoc <- player.getLoc();
             oldRoom <- world.getRoom(oldId);
             if (!oldRoom.exits)
                 oldRoom.exits = {};
@@ -68,7 +68,7 @@ function execute(query, player, cb) {
             _ <- world.createRoom(id, newRoom);
             oldRoom.exits[dir] = id;
             _ <- world.updateRoom(oldId, 'exits', oldRoom.exits);
-            player.loc = id;
+            _ <- player.setLoc(id);
             var msg = look(newRoom);
             msg.prefix = 'Dug.';
             return msg;
@@ -77,11 +77,12 @@ function execute(query, player, cb) {
         case 'desc':
         {
             var newDesc = query.arg.desc.slice(0, 140);
-            room <- player.getRoom();
+            loc <- player.getLoc();
+            room <- world.getRoom(loc);
             if (!room.vis)
                 room.vis = {};
             room.vis.desc = newDesc;
-            _ <- world.updateRoom(player.loc, 'vis', room.vis);
+            _ <- world.updateRoom(loc, 'vis', room.vis);
             var msg = look(room);
             msg.prefix = 'Changed.'
             return msg;
@@ -194,11 +195,11 @@ function onCommand(client, command) {
 }
 
 function onLogin(info) {
-    if (!info.id || typeof info.id != 'string' || !info.id.match(/^\d+$/))
+    if (!info || typeof info.id != 'string' || !info.id.match(/^\d{1,20}$/))
         return this.emit('error', 'Bad id.');
-    var client = CLIENTS[info.id];
+    var id = info.id, client = CLIENTS[id];
     if (!client)
-        CLIENTS[info.id] = client = {id: info.id};
+        CLIENTS[id] = client = {};
     if (client.socket) {
         client.socket.emit('error', 'Kicked out by another browser session.');
         client.socket.disconnect();
@@ -206,8 +207,7 @@ function onLogin(info) {
     client.socket = this;
 
     if (!client.player) {
-        var player = new universe.Player;
-        player.enterWorld(world, function (err) {
+        universe.Player.getOrCreate(id, world, function (err, player) {
             if (err) {
                 console.error(err);
                 client.emit('error', "Couldn't enter world.");
@@ -218,12 +218,12 @@ function onLogin(info) {
             }
             else {
                 client.player = player;
-                ready('Welcome.');
+                ready('Welcome, ' + player.name + '.');
             }
         });
     }
     else
-        ready('Welcome back.');
+        ready('Welcome back, ' + client.player.name + '.');
 
     function ready(welcome) {
         client.socket.emit('login', {msg: welcome});

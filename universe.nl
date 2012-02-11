@@ -43,7 +43,7 @@ W.updateRoom = function (id, k, v, cb) {
 
 W.getRoom = function (id, cb) {
 	info <- db.hgetall("room:" + id);
-	if (_.isEmpty(info))
+	if (!info || _.isEmpty(info))
 		throw "No such room.";
 	var room = {};
 	try {
@@ -51,8 +51,8 @@ W.getRoom = function (id, cb) {
 			room[k] = JSON.parse(info[k]);
 	}
 	catch (e) {
-		cb(e);
-		return;
+		console.error(e);
+		throw "Corrupt room.";
 	}
 	return room;
 };
@@ -62,7 +62,10 @@ W.setStartingRoom = function (id, cb) {
 };
 
 W.getStartingRoom = function (cb) {
-	db.get(this.worldKey + ":startingRoom", cb);
+	loc <- db.get(this.worldKey + ":startingRoom");
+	if (!loc)
+		throw "No starting room?!";
+	return loc;
 };
 
 W.getRoomCount = function (cb) {
@@ -72,19 +75,39 @@ W.getRoomCount = function (cb) {
 
 exports.World = World;
 
-function Player() {
+function Player(id, world) {
+	this.id = id;
+	this.name = 'Guest-' + id;
+	this.world = world;
 }
 var P = Player.prototype;
 
-P.enterWorld = function (world, cb) {
-	id <- world.getStartingRoom();
-	this.loc = id;
-	this.world = world;
-	return true;
+Player.getOrCreate = function (clientId, world, cb) {
+	playerId <- db.hget('players:idMap', clientId);
+	if (playerId)
+		return new Player(playerId, world);
+	playerId <- db.incr('players:idCtr');
+	_ <- db.hset('players:idMap', clientId, playerId);
+
+	roomId <- world.getStartingRoom();
+	_ <- db.set('player:' + playerId + ':loc', roomId);
+	return new Player(playerId, world);
+};
+
+P.getLoc = function (cb) {
+	loc <- db.get('player:' + this.id + ':loc');
+	return loc;
 };
 
 P.getRoom = function (cb) {
-	this.world.getRoom(this.loc, cb);
+	loc <- this.getLoc();
+	room <- this.world.getRoom(loc);
+	return room;
+};
+
+P.setLoc = function (loc, cb) {
+	_ <- db.set('player:' + this.id + ':loc', loc);
+	return null;
 };
 
 exports.Player = Player;
