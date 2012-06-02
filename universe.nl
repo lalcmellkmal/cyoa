@@ -1,5 +1,6 @@
 var _ = require('underscore'),
     config = require('./config'),
+    crypto = require('crypto'),
     redis = require('redis');
 
 function redisClient() {
@@ -14,9 +15,32 @@ function World(worldIndex) {
 }
 var W = World.prototype;
 
-W.allocRoom = function (cb) {
-	id <- db.incr('roomCtr');
-	return id;
+function LuaScript(src, keyCount, argCount) {
+	if (!(this instanceof LuaScript))
+		return new LuaScript(src, keyCount, argCount);
+	this.src = src;
+	this.sha = crypto.createHash('sha1').update(src).digest('hex');
+	this.keyCount = keyCount;
+	this.argCount = argCount;
+}
+
+LuaScript.prototype.eval = function (keys, args, callback) {
+	var n = this.keyCount;
+	if (keys.length != n)
+		throw "Ought to have " + n + " key(s): " + keys;
+	if (args.length != this.argCount)
+		throw "Ought to have " + this.argCount + " arg(s): " + args;
+	var self = this;
+	db.evalsha(this.sha, n, keys, args, function (err, result) {
+		/* Gah, this sucks. Any way to get the redis error name? */
+		if (err && err.message && err.message.match(/NOSCRIPT/)) {
+			db.eval(self.src, n, keys, args, callback);
+		}
+		else if (err)
+			callback(err);
+		else
+			callback(null, result);
+	});
 };
 
 W.createRoom = function (id, room, cb) {
