@@ -15,14 +15,38 @@ function World(worldIndex) {
 }
 var W = World.prototype;
 
-function LuaScript(src, keyCount, argCount) {
+function LuaScript(src) {
 	if (!(this instanceof LuaScript))
-		return new LuaScript(src, keyCount, argCount);
-	this.src = src;
+		return new LuaScript(src);
+	this.transformSource(src);
 	this.sha = crypto.createHash('sha1').update(src).digest('hex');
+}
+
+LuaScript.prototype.transformSource = function (src) {
+	var keyCount = 0, argCount = 0;
+	var result = [];
+	var bits = src.split(/(KEYS|ARGV|JSONHASH)\[(\d+)\]/g);
+	for (var i = 0; i < bits.length; i++) {
+		if (i % 3 == 0) {
+			result.push(bits[i]);
+			continue;
+		}
+		var kind = bits[i];
+		var index = parseInt(bits[++i], 10);
+		var transformed;
+		if (kind == 'KEYS')
+			keyCount = Math.max(keyCount, index);
+		else {
+			argCount = Math.max(argCount, index);
+			if (kind == 'JSONHASH')
+				transformed = 'unpack(cjson.decode(ARGV[' + index + ']))';
+		}
+		result.push(transformed || (kind + '[' + index + ']'));
+	}
 	this.keyCount = keyCount;
 	this.argCount = argCount;
-}
+	this.src = result.join('');
+};
 
 LuaScript.prototype.eval = function (keys, args, callback) {
 	var n = this.keyCount;
@@ -49,10 +73,10 @@ var luaMakeRoom = LuaScript("""
 	if redis.call('exists', key) ~= 0 then
 		return {err="Room "..id.." already exists!"}
 	end
-	redis.call('hmset', key, unpack(cjson.decode(ARGV[1])))
+	redis.call('hmset', key, JSONHASH[1])
 	redis.call('sadd', KEYS[1], id)
 	return id
-""", 1, 1);
+""");
 
 W.createRoom = function (room, cb) {
 	luaMakeRoom.eval([this.worldKey + ':rooms'], [stringifyValues(room)], cb);
