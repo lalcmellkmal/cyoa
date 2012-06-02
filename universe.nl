@@ -43,20 +43,27 @@ LuaScript.prototype.eval = function (keys, args, callback) {
 	});
 };
 
-W.createRoom = function (id, room, cb) {
-	var key = "room:" + id;
-	exists <- db.exists(key);
-	if (exists)
-		throw "Room " + id + " already exists!";
-	var info = {};
-	for (var k in room)
-		info[k] = JSON.stringify(room[k]);
-	var m = db.multi();
-	m.hmset(key, info);
-	m.sadd(this.worldKey + ":rooms", id);
-	m.exec(cb);
+var luaMakeRoom = LuaScript("""
+	local id = redis.call('incr', 'roomCtr')
+	local key = 'room:'..id
+	if redis.call('exists', key) ~= 0 then
+		return {err="Room "..id.." already exists!"}
+	end
+	redis.call('hmset', key, unpack(cjson.decode(ARGV[1])))
+	redis.call('sadd', KEYS[1], id)
+	return id
+""", 1, 1);
+
+W.createRoom = function (room, cb) {
+	luaMakeRoom.eval([this.worldKey + ':rooms'], [stringifyValues(room)], cb);
 };
 
+function stringifyValues(obj) {
+	var results = [];
+	for (var k in obj)
+		results.push(k, JSON.stringify(obj[k]));
+	return JSON.stringify(results);
+}
 
 W.updateRoom = function (id, k, v, cb) {
 	var key = "room:" + id;

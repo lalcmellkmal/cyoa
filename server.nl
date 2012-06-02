@@ -12,8 +12,7 @@ var world = new universe.World(1);
 function setup(cb) {
     count <- world.getRoomCount();
     if (!count) {
-        id <- world.allocRoom();
-        _ <- world.createRoom(id, {vis: {desc: "You are at home."}});
+        id <- world.createRoom({vis: {desc: "You are at home."}});
         _ <- world.setStartingRoom(id);
         return "Made initial room.";
     }
@@ -63,10 +62,9 @@ function execute(query, player, cb) {
                 oldRoom.exits = {};
             if (dir in oldRoom.exits)
                 return "That's already an exit.";
-            id <- world.allocRoom();
             var newRoom = {exits: {}};
             newRoom.exits[backDir] = oldId;
-            _ <- world.createRoom(id, newRoom);
+            id <- world.createRoom(newRoom);
             oldRoom.exits[dir] = id;
             _ <- world.updateRoom(oldId, 'exits', oldRoom.exits);
             _ <- player.move(oldId, id);
