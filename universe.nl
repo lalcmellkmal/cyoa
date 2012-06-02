@@ -81,7 +81,7 @@ W.getRoom = function (id, cb) {
 	rs <- m.exec();
 	var info = rs[0], players = rs[1];
 	if (!info || _.isEmpty(info))
-		throw "No such room.";
+		throw "No such room " + id + ".";
 	var room = {};
 	try {
 		for (var k in info)
