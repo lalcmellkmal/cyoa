@@ -23,6 +23,7 @@ function LuaScript(src) {
 }
 
 LuaScript.prototype.transformSource = function (src) {
+	this.modifiers = {};
 	var keyCount = 0, argCount = 0;
 	var result = [];
 	var bits = src.split(/(KEYS|ARGV|JSONHASH)\[(\d+)\]/g);
@@ -38,8 +39,10 @@ LuaScript.prototype.transformSource = function (src) {
 			keyCount = Math.max(keyCount, index);
 		else {
 			argCount = Math.max(argCount, index);
-			if (kind == 'JSONHASH')
+			if (kind == 'JSONHASH') {
 				transformed = 'unpack(cjson.decode(ARGV[' + index + ']))';
+				this.modifiers[index] = stringifyValues;
+			}
 		}
 		result.push(transformed || (kind + '[' + index + ']'));
 	}
@@ -55,6 +58,11 @@ LuaScript.prototype.eval = function (keys, args, callback) {
 	if (args.length != this.argCount)
 		throw "Ought to have " + this.argCount + " arg(s): " + args;
 	var self = this;
+	/* Massage values according to previous spec */
+	args = args.map(function (val, i) {
+		var func = self.modifiers[i + 1];
+		return func ? func(val) : val;
+	});
 	db.evalsha(this.sha, n, keys, args, function (err, result) {
 		/* Gah, this sucks. Any way to get the redis error name? */
 		if (err && err.message && err.message.match(/NOSCRIPT/)) {
@@ -79,7 +87,7 @@ var luaMakeRoom = LuaScript("""
 """);
 
 W.createRoom = function (room, cb) {
-	luaMakeRoom.eval([this.worldKey + ':rooms'], [stringifyValues(room)], cb);
+	luaMakeRoom.eval([this.worldKey + ':rooms'], [room], cb);
 };
 
 function stringifyValues(obj) {
