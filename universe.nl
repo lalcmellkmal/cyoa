@@ -34,7 +34,7 @@ LuaScript.prototype.transformSource = function (src) {
 		}
 		var kind = bits[i];
 		var index = parseInt(bits[++i], 10);
-		var transformed;
+		var transformed = null;
 		if (kind == 'KEYS')
 			keyCount = Math.max(keyCount, index);
 		else {
