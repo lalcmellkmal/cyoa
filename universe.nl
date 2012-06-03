@@ -48,7 +48,9 @@ LuaScript.prototype.transformSource = function (src) {
 	}
 	this.keyCount = keyCount;
 	this.argCount = argCount;
-	this.src = result.join('');
+	src = result.join('');
+	src = src.replace(/DEBUG\(/g, 'redis.log(redis.LOG_WARNING, ');
+	this.src = src;
 };
 
 LuaScript.prototype.eval = function (keys, args, callback) {
