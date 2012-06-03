@@ -63,13 +63,12 @@ LuaScript.prototype.eval = function (keys, args, callback) {
 	/* Massage values according to previous spec */
 	args = args.map(function (val, i) {
 		var func = self.modifiers[i + 1];
-		return func ? func(val) : val;
+		return (func ? func(val) : val).toString();
 	});
-	db.evalsha(this.sha, n, keys, args, function (err, result) {
+	db.evalsha(this.sha, n, keys.concat(args), function (err, result) {
 		/* Gah, this sucks. Any way to get the redis error name? */
-		if (err && err.message && err.message.match(/NOSCRIPT/)) {
-			db.eval(self.src, n, keys, args, callback);
-		}
+		if (err && err.message.match(/NOSCRIPT/))
+			db.eval(self.src, n, keys.concat(args), callback);
 		else if (err)
 			callback(err);
 		else
