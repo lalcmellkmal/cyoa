@@ -181,11 +181,25 @@ P.getRoom = function (cb) {
 };
 
 P.move = function (oldLoc, newLoc, cb) {
-	moved <- db.smove('room:' + oldLoc + ':players', 'room:' + newLoc + ':players', this.id);
-	if (!moved)
-		throw "Not in the same room anymore.";
-	_ <- db.set('player:' + this.id + ':loc', newLoc);
-	return null;
+	var oldRoom = 'room:' + oldLoc + ':players';
+	var newRoom = 'room:' + newLoc + ':players';
+	var playerLoc = 'player:' + this.id + ':loc';
+	luaMovePlayer.eval([oldRoom, newRoom, playerLoc], [oldLoc, newLoc, this.id], function (err) {
+		if (err && err.message.match(/WRONGSRC/))
+			cb("Not in the same room anymore.");
+		else
+			cb(err);
+	});
 };
+
+var luaMovePlayer = LuaScript("""
+	if redis.call('get', KEYS[3]) ~= ARGV[1] then
+		return {err="WRONGSRC"}
+	end
+	if redis.call('smove', KEYS[1], KEYS[2], ARGV[3]) == 0 then
+		return {err="WRONGSRC"}
+	end
+	redis.call('set', KEYS[3], ARGV[2]);
+""");
 
 exports.Player = Player;
