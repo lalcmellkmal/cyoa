@@ -18,7 +18,7 @@ var W = World.prototype;
 function LuaScript(src) {
 	if (!(this instanceof LuaScript))
 		return new LuaScript(src);
-	this.transformSource(src);
+	this.src = this.convertLookups(this.transformSource(src));
 	this.sha = crypto.createHash('sha1').update(src).digest('hex');
 }
 
@@ -50,25 +50,91 @@ LuaScript.prototype.transformSource = function (src) {
 	this.argCount = argCount;
 	src = result.join('');
 	src = src.replace(/DEBUG\(/g, 'redis.log(redis.LOG_WARNING, ');
-	this.src = src;
+	return src;
 };
 
-LuaScript.prototype.eval = function (keys, args, callback) {
+LuaScript.prototype.convertLookups = function (src) {
+	this.extraKeys = [];
+	this.extraArgs = [];
+	var keyIndices = {}, argIndices = {};
+	var result = [];
+	var bits = src.split(/([KA])\[([\w:]+)\]/g);
+	for (var i = 0; i < bits.length; i++) {
+		if (i % 3 == 0) {
+			result.push(bits[i]);
+			continue;
+		}
+		var kind = bits[i];
+		var fullKey = bits[++i];
+
+		var transformed;
+		if (kind == 'K') {
+			var index = keyIndices[fullKey];
+			if (!index) {
+				var parts = fullKey.match(/^(\w+)(:.+)?$/);
+				var info = {stem: parts[1], tail: parts[2] || ''};
+				var m = info.stem.match(/[A-Z][a-z]*$/);
+				info.noun = m ? m[0].toLowerCase() : info.stem;
+				this.extraKeys.push(info);
+				var index = this.keyCount + this.extraKeys.length;
+				keyIndices[fullKey] = index;
+			}
+			transformed = 'KEYS[' + index + ']';
+		}
+		else if (kind == 'A') {
+			var index = argIndices[fullKey];
+			if (!index) {
+				this.extraArgs.push(fullKey);
+				var index = this.argCount + this.extraArgs.length;
+				argIndices[fullKey] = index;
+			}
+			transformed = 'ARGV[' + index + ']';
+		}
+		result.push(transformed);
+	}
+	return result.join('');
+};
+
+LuaScript.prototype.eval = function (keywords, keys, args, callback) {
+	if (!callback) {
+		callback = args;
+		args = [];
+	}
+	if (!callback) {
+		callback = keys;
+		keys = [];
+	}
+	var self = this;
+
 	var n = this.keyCount;
 	if (keys.length != n)
 		throw "Ought to have " + n + " key(s): " + keys;
 	if (args.length != this.argCount)
 		throw "Ought to have " + this.argCount + " arg(s): " + args;
-	var self = this;
-	/* Massage values according to previous spec */
-	args = args.map(function (val, i) {
-		var func = self.modifiers[i + 1];
-		return (func ? func(val) : val).toString();
+
+	/* Insert keyword arguments */
+	var allArgs = keys.slice();
+	n += this.extraKeys.length;
+	this.extraKeys.forEach(function (keyInfo) {
+		if (!(keyInfo.stem in keywords))
+			throw "Keyword missing: " + keyInfo.stem;
+		allArgs.push(keyInfo.noun + ':' + keywords[keyInfo.stem] + keyInfo.tail);
 	});
-	db.evalsha(this.sha, n, keys.concat(args), function (err, result) {
+	/* Massage values according to previous spec */
+	args.forEach(function (val, i) {
+		var func = self.modifiers[i + 1];
+		allArgs.push((func ? func(val) : val).toString());
+	});
+	this.extraArgs.forEach(function (keyword) {
+		if (!keyword in keywords)
+			throw "Argument missing: " + keyword;
+		allArgs.push(keywords[keyword].toString());
+	});
+
+	db.evalsha(this.sha, n, allArgs.slice(), function (err, result) {
 		/* Gah, this sucks. Any way to get the redis error name? */
 		if (err && err.message.match(/NOSCRIPT/))
-			db.eval(self.src, n, keys.concat(args), callback);
+			db.eval(self.src, n, allArgs, callback);
 		else if (err)
 			callback(err);
 		else
@@ -88,7 +154,7 @@ var luaMakeRoom = LuaScript("""
 """);
 
 W.createRoom = function (room, cb) {
-	luaMakeRoom.eval([this.worldKey + ':rooms'], [room], cb);
+	luaMakeRoom.eval({}, [this.worldKey + ':rooms'], [room], cb);
 };
 
 function stringifyValues(obj) {
@@ -179,11 +245,8 @@ P.getRoom = function (cb) {
 	return room;
 };
 
-P.move = function (oldLoc, newLoc, cb) {
-	var oldRoom = 'room:' + oldLoc + ':players';
-	var newRoom = 'room:' + newLoc + ':players';
-	var playerLoc = 'player:' + this.id + ':loc';
-	luaMovePlayer.eval([oldRoom, newRoom, playerLoc], [oldLoc, newLoc, this.id], function (err) {
+P.move = function (oldRoom, newRoom, cb) {
+	luaMovePlayer.eval({oldRoom: oldRoom, newRoom: newRoom, player: this.id}, function (err) {
 		if (err && err.message.match(/WRONGSRC/))
 			cb("Not in the same room anymore.");
 		else
@@ -192,13 +255,13 @@ P.move = function (oldLoc, newLoc, cb) {
 };
 
 var luaMovePlayer = LuaScript("""
-	if redis.call('get', KEYS[3]) ~= ARGV[1] then
+	if redis.call('get', K[player:loc]) ~= A[oldRoom] then
 		return {err="WRONGSRC"}
 	end
-	if redis.call('smove', KEYS[1], KEYS[2], ARGV[3]) == 0 then
+	if redis.call('smove', K[oldRoom:players], K[newRoom:players], A[player]) == 0 then
 		return {err="WRONGSRC"}
 	end
-	redis.call('set', KEYS[3], ARGV[2]);
+	redis.call('set', K[player:loc], A[newRoom]);
 """);
 
 exports.Player = Player;
