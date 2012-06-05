@@ -1,7 +1,8 @@
 var _ = require('underscore'),
     config = require('./config'),
     lua = require('./lua'),
-    redis = require('redis');
+    redis = require('redis'),
+    util = require('util');
 
 function redisClient() {
 	return redis.createClient(config.REDIS_PORT);
@@ -10,6 +11,17 @@ exports.redisClient = redisClient;
 
 var db = redisClient();
 lua.setDb(db);
+
+/* Error with a user-friendly message */
+function Nope(message) {
+	if (!(this instanceof Nope))
+		return new Nope(message);
+	Error.call(this, message);
+	Error.captureStackTrace(this, this.constructor);
+	this.message = message;
+}
+util.inherits(Nope, Error);
+exports.Nope = Nope;
 
 function World(worldIndex) {
 	this.worldKey = "world:" + worldIndex;
@@ -73,7 +85,7 @@ W.lookupRoomExit = function (id, dir, cb) {
 W.addRoomExit = function (id, dir, cb) {
 	wasSet <- db.hsetnx('room:' + id + ':exits', dir, '0');
 	if (!wasSet)
-		throw "Exit already exists.";
+		throw Nope("Exit already exists.");
 	return null;
 };
 
@@ -136,9 +148,9 @@ P.getRoom = function (cb) {
 P.move = function (oldRoom, newRoom, dir, cb) {
 	luaMovePlayer.eval({oldRoom: oldRoom, newRoom: newRoom, player: this.id, dir: dir}, function (err) {
 		if (err && err.message.match(/BADEXIT/))
-			cb("You can't go that way.");
+			cb(Nope("You can't go that way."));
 		else if (err && err.message.match(/WRONGSRC/))
-			cb("Not in the same room anymore.");
+			cb(Nope("Not in the same room anymore."));
 		else
 			cb(err);
 	});

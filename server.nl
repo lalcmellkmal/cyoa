@@ -9,6 +9,8 @@ function plural(word, count) {
 
 var world = new universe.World(1);
 
+var Nope = universe.Nope;
+
 function setup(cb) {
     count <- world.getRoomCount();
     if (!count) {
@@ -36,7 +38,7 @@ function execute(query, player, cb) {
             oldLoc <- player.getLoc();
             newLoc <- world.lookupRoomExit(oldLoc, query.arg.dir);
             if (!newLoc)
-                return "Can't go that way.";
+                return Nope("Can't go that way.");
             _ <- player.move(oldLoc, newLoc, query.arg.dir);
             newRoom <- world.getRoom(newLoc);
             return look(newRoom);
@@ -46,7 +48,7 @@ function execute(query, player, cb) {
         {
             var dir = query.arg.dir, backDir = dirOpposites[dir];
             if (!dir || !backDir)
-                return "That's not a direction.";
+                return Nope("That's not a direction.");
             oldId <- player.getLoc();
             _ <- world.addRoomExit(oldId, dir);
             newId <- world.createRoom({});
@@ -101,9 +103,13 @@ function doCommand(player, command, callback) {
     try {
         execute(command, player, function (err, msg) {
             if (err) {
+                if (err instanceof Nope)
+                    return callback(err.message);
                 dumpError(err, command, player);
                 return callback('Game error.');
             }
+            if (msg instanceof Nope)
+                return callback(msg.message);
             if (typeof msg == 'string')
                 msg = {msg: msg};
             callback(null, msg);
