@@ -126,7 +126,7 @@ LuaScript.prototype.eval = function (keywords, keys, args, callback) {
 		allArgs.push((func ? func(val) : val).toString());
 	});
 	this.extraArgs.forEach(function (keyword) {
-		if (!keyword in keywords)
+		if (!(keyword in keywords))
 			throw "Argument missing: " + keyword;
 		allArgs.push(keywords[keyword].toString());
 	});
