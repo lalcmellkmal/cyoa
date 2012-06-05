@@ -34,21 +34,12 @@ function execute(query, player, cb) {
         {
             var dir = query.arg.dir;
             oldLoc <- player.getLoc();
-            room <- world.getRoom(oldLoc);
-            if (room.exits && dir in room.exits) {
-                var newLoc = room.exits[dir];
-                if (newLoc) {
-                    _ <- player.move(oldLoc, newLoc);
-                    newRoom <- world.getRoom(newLoc);
-                    return look(newRoom);
-                }
-                else {
-                    console.error("Missing destination for", dir);
-                    return "You can't go that way.";
-                }
-            }
-            else
-                return "You can't go that way.";
+            newLoc <- world.lookupRoomExit(oldLoc, query.arg.dir);
+            if (!newLoc)
+                return "Can't go that way.";
+            _ <- player.move(oldLoc, newLoc, query.arg.dir);
+            newRoom <- world.getRoom(newLoc);
+            return look(newRoom);
         }
 
         case 'dig':
@@ -57,18 +48,13 @@ function execute(query, player, cb) {
             if (!dir || !backDir)
                 return "That's not a direction.";
             oldId <- player.getLoc();
-            oldRoom <- world.getRoom(oldId);
-            if (!oldRoom.exits)
-                oldRoom.exits = {};
-            if (dir in oldRoom.exits)
-                return "That's already an exit.";
-            var newRoom = {exits: {}};
-            newRoom.exits[backDir] = oldId;
-            id <- world.createRoom(newRoom);
-            oldRoom.exits[dir] = id;
-            _ <- world.updateRoom(oldId, 'exits', oldRoom.exits);
-            _ <- player.move(oldId, id);
-            var msg = look(newRoom);
+            _ <- world.addRoomExit(oldId, dir);
+            newId <- world.createRoom({});
+            _ <- world.setRoomExit(newId, backDir, oldId);
+            _ <- world.setRoomExit(oldId, dir, newId);
+            _ <- player.move(oldId, newId, dir);
+            room <- world.getRoom(newId);
+            var msg = look(room);
             msg.prefix = 'Dug.';
             return msg;
         }
