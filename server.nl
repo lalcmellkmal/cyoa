@@ -156,42 +156,67 @@ function handler(req, resp) {
     resp.end('Not found');
 }
 
-var media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js', 'input.js'];
+var media = ['client.js', 'plain.css', 'jquery-1.7.1.min.js', 'sockjs-0.3.1.min.js', 'input.js'];
 
 var server = http.createServer(handler);
 server.listen(config.PORT);
 
-var io = require('socket.io').listen(server);
+var sockJs = require('sockjs').createServer({
+    sockjs_url: 'sockjs-0.3.1.min.js',
+    prefix: '/sock',
+    jsessionid: false,
+});
+server.on('upgrade', function (req, resp) {
+    resp.end();
+});
+sockJs.installHandlers(server);
+
 var CLIENTS = {};
 
-io.configure(function () {
-    io.set('authorization', function (handshake, callback) {
-        var cookie = handshake.headers.cookie;
-        // TODO
-        callback(null, true);
-    });
-});
+function Client(id) {
+    this.clientId = id;
+    this.commandResult = this.onCommandResult.bind(this);
+};
 
-function onCommand(client, command) {
-    doCommand(client.player, command, function (err, result) {
-        if (err)
-            client.socket.emit('error', err);
-        else
-            client.socket.emit('result', result);
-    });
-}
+Client.prototype.emit = function (name, arg) {
+    this.socket.write(JSON.stringify({e: name, a: arg}));
+};
 
-function onLogin(info) {
-    if (!info || typeof info.id != 'string' || !info.id.match(/^\d{1,20}$/))
-        return this.emit('error', 'Bad id.');
-    var id = info.id, client = CLIENTS[id];
+Client.prototype.onClose = function () {
+    if (CLIENTS[this.clientId] === this)
+        delete CLIENTS[this.clientId];
+};
+
+Client.prototype.onCommand = function (data) {
+    var command;
+    try {
+        command = JSON.parse(data);
+    }
+    catch (e) {}
+    if (!command)
+        return this.emit('error', 'Invalid command.');
+    doCommand(this.player, command, this.commandResult);
+};
+
+Client.prototype.onCommandResult = function (err, result) {
+    if (err)
+        this.emit('error', err);
+    else
+        this.emit('result', result);
+};
+
+function onLogin(id) {
+    if (!id.match(/^\d{1,20}$/))
+        return this.write(JSON.stringify({e: 'error', a: 'Bad id.'}));
+    var client = CLIENTS[id];
     if (!client)
-        CLIENTS[id] = client = {};
+        CLIENTS[id] = client = new Client(id);
     if (client.socket) {
-        client.socket.emit('error', 'Kicked out by another browser session.');
-        client.socket.disconnect();
+        client.emit('error', 'Kicked out by another browser session.');
+        client.socket.close();
     }
     client.socket = this;
+    client.socket.on('close', client.onClose.bind(client));
 
     if (!client.player) {
         universe.Player.getOrCreate(id, world, function (err, player) {
@@ -213,13 +238,13 @@ function onLogin(info) {
         ready('Welcome back, ' + client.player.name + '.');
 
     function ready(welcome) {
-        client.socket.emit('login', {msg: welcome});
-        client.socket.on('command', onCommand.bind(null, client));
+        client.emit('login', {msg: welcome});
+        client.socket.on('data', client.onCommand.bind(client));
     }
 }
 
-io.sockets.on('connection', function (socket) {
-    socket.once('login', onLogin.bind(socket));
+sockJs.on('connection', function (socket) {
+    socket.once('data', onLogin.bind(socket));
 });
 
 // vi: set sw=4 ts=4 sts=4 ai et filetype=javascript:

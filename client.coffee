@@ -20,7 +20,7 @@ execute = ->
     flat = (t for t in flatten root when typeof t == 'string')
     feedback flat.join ' '
     strip root
-    socket.emit 'command', root
+    socket.send JSON.stringify(root)
 
 strip = (node) ->
     if typeof node == 'object'
@@ -297,21 +297,23 @@ loadAccount = ->
         localStorage.setItem 'playerId', userId
     userId
 
-socket = io.connect()
-socket.on 'connect', ->
-    socket.emit 'login', {id: loadAccount()}
-socket.on 'disconnect', ->
+socket = new SockJS('/sock')
+socket.onopen = ->
+    socket.send loadAccount()
+socket.onclose = ->
     logError 'Dropped.'
-socket.on 'login', (result) ->
-    if result
-        logResult result
-    reset()
-    choose 'look'
-    execute()
-    reset()
-    construct()
-    suggest()
-socket.on 'result', (data) ->
-    logResult data
-socket.on 'error', (error) ->
-    logError error
+socket.onmessage = (msg) ->
+    msg = JSON.parse msg.data
+    if msg.e == 'login'
+        if msg.a
+            logResult msg.a
+        reset()
+        choose 'look'
+        execute()
+        reset()
+        construct()
+        suggest()
+    else if msg.e == 'result'
+        logResult msg.a
+    else if msg.e == 'error'
+        logError msg.a
